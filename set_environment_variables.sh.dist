@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export SEND_STUFF_MAIL_SERVER=
+export SEND_STUFF_MAIL_USER=
+export SEND_STUFF_MAIL_PASS=
