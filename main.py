@@ -3,8 +3,13 @@ import getopt
 import ssl
 import sys
 import smtplib
+import uuid
+import numpy as np
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from PIL import Image
 
 
 def exit_with_help():
@@ -64,6 +69,24 @@ This is an email from Send Stuff, used for testing.
 """
 
 part = MIMEText(text)
+message.attach(part)
+file_name = f"/tmp/{uuid.uuid4()}.jpg"
+
+Image.effect_mandelbrot((800, 600), tuple(np.random.rand(1, 4)[0]+np.array([-2.5, -2, 0.5, 1])), 100).save(file_name)
+
+with open(file_name, "rb") as pic:
+    part = MIMEBase("image", "jpg")
+    part.set_payload(pic.read())
+
+os.remove(file_name)
+
+encoders.encode_base64(part)
+
+part.add_header(
+    "Content-Disposition",
+    "attachment", filename=os.path.basename(file_name)
+)
+
 message.attach(part)
 
 context = ssl.create_default_context()
