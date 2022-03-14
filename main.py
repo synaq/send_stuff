@@ -14,29 +14,33 @@ from faker import Faker
 
 
 def exit_with_help():
-    print(f"{sys.argv[0]} <sender> <recipient_address> [<recipient address> ...]")
+    print(f"{sys.argv[0]} [-s server.override.host] <sender> <recipient_address> [<recipient address> ...]")
     sys.exit(2)
 
 
 mail_server = os.getenv('SEND_STUFF_MAIL_SERVER')
 mail_user = os.getenv('SEND_STUFF_MAIL_USER')
 mail_pass = os.getenv('SEND_STUFF_MAIL_PASS')
+server_override = None
 
 fake = Faker()
 fake_text = Faker(locale='la')
 
-if not mail_server or not mail_user or not mail_pass:
-    print("You must set environment variables with mail sending configuration. Please see README.md")
-    sys.exit(1)
+opts, args = getopt.gnu_getopt(sys.argv[1:], "hs:", ["help", "server="])
 
-opts, args = getopt.gnu_getopt(sys.argv[1:], "h", ["help"])
-
-for opt in opts:
+for opt, val in opts:
     if "-h" in opt:
         exit_with_help()
 
+    if "-s" in opt:
+        server_override = val
+
 if len(args) < 2:
     exit_with_help()
+
+if not server_override and (not mail_server or not mail_user or not mail_pass):
+    print("You must set environment variables with mail sending configuration or use server override. Please see README.md")
+    sys.exit(1)
 
 sender_email = args[0]
 recipient = args[1]
@@ -122,7 +126,12 @@ message.attach(part)
 
 context = ssl.create_default_context()
 
+if server_override:
+    mail_server = server_override
+
 with smtplib.SMTP(mail_server) as server:
-    server.starttls(context=context)
-    server.login(mail_user, mail_pass)
+    if not server_override:
+        server.starttls(context=context)
+        server.login(mail_user, mail_pass)
+
     server.sendmail(sender, recipient, message.as_string())
