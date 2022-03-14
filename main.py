@@ -1,5 +1,6 @@
 import os
 import getopt
+import random
 import ssl
 import sys
 import smtplib
@@ -8,8 +9,9 @@ import numpy as np
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
-from PIL import Image
+from PIL import Image, ImageDraw
 from faker import Faker
 
 
@@ -51,8 +53,9 @@ sender_position = fake.job()
 sender_company = fake.company()
 sender_address = fake.address()
 
+add_logo = random.choice([True, False])
 
-message = MIMEMultipart("alternative")
+message = MIMEMultipart("related" if add_logo else "alternative")
 message["From"] = sender
 message["To"] = f"{fake.name()} <{recipient}>"
 message["Subject"] = fake.bs()
@@ -62,6 +65,25 @@ message_title = fake.text()
 message_content = fake_text.paragraphs()
 message_content_html = "<p>" + "</p><p>".join(message_content) + "</p>"
 message_content_plain = "\r\n\r\n".join(message_content)
+
+if add_logo:
+    logo_cid = uuid.uuid4()
+    logo_path = f"/tmp/{logo_cid}.png"
+    logo_img = Image.new('RGB', (200, 30), color=(255, 255, 255))
+    logo_drawing = ImageDraw.Draw(logo_img)
+    logo_drawing.text((10, 10), sender_company, fill=(random.randint(0, 168), random.randint(0, 168), random.randint(0, 168)))
+    logo_img.save(logo_path)
+
+    with open(logo_path, 'rb') as logo_file:
+        logo_part = MIMEImage(logo_file.read())
+        logo_part.add_header('Content-ID', f"<{logo_cid}>")
+
+    message.attach(logo_part)
+    logo_html = f"<img src='cid:{logo_cid}' /><br />"
+
+    os.remove(logo_path)
+else:
+    logo_html = ""
 
 html = f"""\
 <html>
@@ -73,6 +95,7 @@ html = f"""\
         <hr >
         <strong>{sender_name}</strong><br />
         {sender_position}<br /><br />
+        {logo_html}
         <strong>{sender_company}<strong><br />
         {sender_address}
     </p
@@ -84,8 +107,7 @@ html = f"""\
 </html>
 """
 
-part = MIMEText(html, "html")
-message.attach(part)
+html_part = MIMEText(html, "html")
 
 text = f"""\
 {message_title}
@@ -103,8 +125,18 @@ text = f"""\
 This is an email from Send Stuff, used for testing.
 """
 
-part = MIMEText(text)
-message.attach(part)
+text_part = MIMEText(text)
+
+if add_logo:
+    message.preamble = '====================================================='
+    message_alternative = MIMEMultipart('alternative')
+    message_alternative.attach(html_part)
+    message_alternative.attach(text_part)
+    message.attach(message_alternative)
+else:
+    message.attach(html_part)
+    message.attach(text_part)
+
 file_name = f"/tmp/{uuid.uuid4()}.jpg"
 
 Image.effect_mandelbrot((800, 600), tuple(np.random.rand(1, 4)[0]+np.array([-2.5, -2, 0.5, 1])), 100).save(file_name)
