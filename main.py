@@ -10,10 +10,11 @@ from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from PIL import Image
+from faker import Faker
 
 
 def exit_with_help():
-    print(f"{sys.argv[0]} <recipient_address> [<recipient address> ...]")
+    print(f"{sys.argv[0]} <sender> <recipient_address> [<recipient address> ...]")
     sys.exit(2)
 
 
@@ -21,6 +22,8 @@ mail_server = os.getenv('SEND_STUFF_MAIL_SERVER')
 mail_user = os.getenv('SEND_STUFF_MAIL_USER')
 mail_pass = os.getenv('SEND_STUFF_MAIL_PASS')
 
+fake = Faker()
+fake_text = Faker(locale='la')
 
 if not mail_server or not mail_user or not mail_pass:
     print("You must set environment variables with mail sending configuration. Please see README.md")
@@ -32,22 +35,43 @@ for opt in opts:
     if "-h" in opt:
         exit_with_help()
 
-if len(args) < 1:
+if len(args) < 2:
     exit_with_help()
 
-sender = "Send stuff test <willemv@synaq.com>"
-recipient = args[0]
+sender_email = args[0]
+recipient = args[1]
+
+sender_name = fake.name()
+sender = f"{sender_name} <{sender_email}>"
+sender_position = fake.job()
+sender_company = fake.company()
+sender_address = fake.address()
+
 
 message = MIMEMultipart("alternative")
 message["From"] = sender
-message["To"] = f"Test Recipient <{recipient}>"
-message["Subject"] = "Test message from Send Stuff"
+message["To"] = f"{fake.name()} <{recipient}>"
+message["Subject"] = fake.bs()
+message.add_header('reply-to', f"{sender_name} <{fake.safe_email()}>")
 
-html = """\
+message_title = fake.text()
+message_content = fake_text.paragraphs()
+message_content_html = "<p>" + "</p><p>".join(message_content) + "</p>"
+message_content_plain = "\r\n\r\n".join(message_content)
+
+html = f"""\
 <html>
   <body>
-    <p><b>Send Stuff Mail Test</b></p>
-    <p>Test message</p>
+    <p>{message_title}</p>
+    {message_content_html}
+    
+    <p>
+        <hr >
+        <strong>{sender_name}</strong><br />
+        {sender_position}<br /><br />
+        <strong>{sender_company}<strong><br />
+        {sender_address}
+    </p
     <p>
         <hr />
         This is an email from Send Stuff, used for testing.
@@ -59,10 +83,17 @@ html = """\
 part = MIMEText(html, "html")
 message.attach(part)
 
-text = """\
-Send Stuff Mail Test
+text = f"""\
+{message_title}
 
-Test message
+{message_content_plain}
+
+--
+{sender_name}
+{sender_position}
+
+{sender_company}
+{sender_address}
 
 --
 This is an email from Send Stuff, used for testing.
