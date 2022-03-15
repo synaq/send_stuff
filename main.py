@@ -51,7 +51,7 @@ if not server_override and (not mail_server or not mail_user or not mail_pass):
     sys.exit(1)
 
 sender_email = args[0]
-recipient = args[1]
+recipients = args[1:]
 
 bar = IncrementalBar(max=iterations)
 
@@ -64,6 +64,7 @@ sender_position = None
 sender_company = None
 sender_address = None
 fake_sender = None
+recipient = None
 
 
 def purge_logo_file():
@@ -96,6 +97,10 @@ for i in range(0, iterations):
         sender_address = fake.address()
         add_logo = random.choice([True, False])
         fake_sender = f"{sender_name} <{fake.safe_email()}>"
+
+    reuse_recipient = random.choice([True, False])
+    if not recipient or not reuse_recipient:
+        recipient = recipients[random.randint(0, len(recipients) - 1)]
 
     message = MIMEMultipart("related" if add_logo else "alternative")
     message["From"] = sender if not server_override else fake_sender
