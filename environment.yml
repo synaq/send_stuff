@@ -1,0 +1,10 @@
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - progress
+  - faker
+  - pip
+  - pip:
+    - pillow==9.0.1
+
