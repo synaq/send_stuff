@@ -55,6 +55,30 @@ recipient = args[1]
 
 bar = IncrementalBar(max=iterations)
 
+file_name = None
+logo_cid = None
+logo_path = None
+sender = None
+sender_name = None
+sender_position = None
+sender_company = None
+sender_address = None
+fake_sender = None
+
+
+def purge_logo_file():
+    if logo_path is not None:
+        os.remove(logo_path)
+
+
+def purge_attachment_file():
+    if file_name is not None:
+        os.remove(file_name)
+
+
+add_logo = False
+
+
 if iterations > 1:
     bar.start()
 
@@ -62,19 +86,24 @@ for i in range(0, iterations):
     if iterations > 1:
         bar.next()
 
-    sender_name = fake.name()
-    sender = f"{sender_name} <{sender_email}>"
-    sender_position = fake.job()
-    sender_company = fake.company()
-    sender_address = fake.address()
+    reuse_sender = random.choice([True, False])
 
-    add_logo = random.choice([True, False])
+    if sender_name is None or not reuse_sender:
+        sender_name = fake.name()
+        sender = f"{sender_name} <{sender_email}>"
+        sender_position = fake.job()
+        sender_company = fake.company()
+        sender_address = fake.address()
+        add_logo = random.choice([True, False])
+        fake_sender = f"{sender_name} <{fake.safe_email()}>"
 
     message = MIMEMultipart("related" if add_logo else "alternative")
-    message["From"] = sender
+    message["From"] = sender if not server_override else fake_sender
     message["To"] = f"{fake.name()} <{recipient}>"
     message["Subject"] = fake.bs()
-    message.add_header('reply-to', f"{sender_name} <{fake.safe_email()}>")
+
+    if not server_override:
+        message.add_header('Reply-to', fake_sender)
 
     message_title = fake.text()
     message_content = fake_text.paragraphs()
@@ -82,12 +111,15 @@ for i in range(0, iterations):
     message_content_plain = "\r\n\r\n".join(message_content)
 
     if add_logo:
-        logo_cid = uuid.uuid4()
-        logo_path = f"/tmp/{logo_cid}.png"
-        logo_img = Image.new('RGB', (200, 30), color=(255, 255, 255))
-        logo_drawing = ImageDraw.Draw(logo_img)
-        logo_drawing.text((10, 10), sender_company, fill=(random.randint(0, 168), random.randint(0, 168), random.randint(0, 168)))
-        logo_img.save(logo_path)
+        if logo_cid is None or not reuse_sender:
+            purge_logo_file()
+
+            logo_cid = uuid.uuid4()
+            logo_path = f"/tmp/{logo_cid}.png"
+            logo_img = Image.new('RGB', (200, 30), color=(255, 255, 255))
+            logo_drawing = ImageDraw.Draw(logo_img)
+            logo_drawing.text((10, 10), sender_company, fill=(random.randint(0, 168), random.randint(0, 168), random.randint(0, 168)))
+            logo_img.save(logo_path)
 
         with open(logo_path, 'rb') as logo_file:
             logo_part = MIMEImage(logo_file.read())
@@ -95,8 +127,6 @@ for i in range(0, iterations):
 
         message.attach(logo_part)
         logo_html = f"<img src='cid:{logo_cid}' /><br />"
-
-        os.remove(logo_path)
     else:
         logo_html = ""
 
@@ -152,24 +182,28 @@ for i in range(0, iterations):
         message.attach(html_part)
         message.attach(text_part)
 
-    file_name = f"/tmp/{uuid.uuid4()}.jpg"
+    add_attachment = random.choice([True, False])
+    reuse_attachment = random.choice([True, False])
 
-    Image.effect_mandelbrot((800, 600), tuple(np.random.rand(1, 4)[0]+np.array([-2.5, -2, 0.5, 1])), 100).save(file_name)
+    if add_attachment:
+        if file_name is None or not reuse_attachment:
+            purge_attachment_file()
 
-    with open(file_name, "rb") as pic:
-        part = MIMEBase("image", "jpg")
-        part.set_payload(pic.read())
+            file_name = f"/tmp/{uuid.uuid4()}.jpg"
+            Image.effect_mandelbrot((800, 600), tuple(np.random.rand(1, 4)[0]+np.array([-2.5, -2, 0.5, 1])), 100).save(file_name)
 
-    os.remove(file_name)
+        with open(file_name, "rb") as pic:
+            part = MIMEBase("image", "jpg")
+            part.set_payload(pic.read())
 
-    encoders.encode_base64(part)
+        encoders.encode_base64(part)
 
-    part.add_header(
-        "Content-Disposition",
-        "attachment", filename=os.path.basename(file_name)
-    )
+        part.add_header(
+            "Content-Disposition",
+            "attachment", filename=os.path.basename(file_name)
+        )
 
-    message.attach(part)
+        message.attach(part)
 
     context = ssl.create_default_context()
 
@@ -185,3 +219,6 @@ for i in range(0, iterations):
 
 if iterations > 1:
     bar.finish()
+
+purge_logo_file()
+purge_attachment_file()
