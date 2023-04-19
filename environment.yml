@@ -5,6 +5,7 @@ dependencies:
   - progress
   - faker
   - pip
+  - zlib=1.2.12
   - pip:
     - pillow==9.0.1
 

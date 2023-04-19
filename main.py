@@ -106,6 +106,7 @@ for i in range(0, iterations):
     message["From"] = sender if not server_override else fake_sender
     message["To"] = f"{fake.name()} <{recipient}>"
     message["Subject"] = fake.bs()
+    message['Date'] = fake.date_time_this_year().strftime("%a, %d %b %Y %H:%M:%S %z")
 
     if not server_override:
         message.add_header('Reply-to', fake_sender)
