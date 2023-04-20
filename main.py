@@ -5,6 +5,7 @@ import ssl
 import sys
 import smtplib
 import uuid
+from datetime import timedelta, timezone
 import numpy as np
 from email import encoders
 from email.mime.base import MIMEBase
@@ -102,11 +103,17 @@ for i in range(0, iterations):
     if not recipient or not reuse_recipient:
         recipient = recipients[random.randint(0, len(recipients) - 1)]
 
+    random_offset = timedelta(hours=random.randint(-12, 12))
+    random_timezone = timezone(random_offset)
+    random_datetime = fake.date_time_this_year()
+    random_datetime_tz = random_datetime.replace(tzinfo=random_timezone)
+    formatted_datetime = random_datetime_tz.strftime("%a, %d %b %Y %H:%M:%S %z")
+
     message = MIMEMultipart("related" if add_logo else "alternative")
     message["From"] = sender if not server_override else fake_sender
     message["To"] = f"{fake.name()} <{recipient}>"
     message["Subject"] = fake.bs()
-    message['Date'] = fake.date_time_this_year().strftime("%a, %d %b %Y %H:%M:%S %z")
+    message['Date'] = formatted_datetime
 
     if not server_override:
         message.add_header('Reply-to', fake_sender)
